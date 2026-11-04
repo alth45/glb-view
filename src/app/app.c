@@ -4,6 +4,8 @@
 #include <GLFW/glfw3.h>
 #include <cglm/cglm.h>
 
+#include "app/config.h"
+#include "app/hud.h"
 #include "camera/camera.h"
 #include "core/log.h"
 #include "gfx/pbr_ibl.h"
@@ -11,183 +13,17 @@
 #include "gl/gl_loader.h"
 #include "model/gltf_model.h"
 
+#include "stb_image_write.h"
+
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
-/* ================================================================== */
-/*  Shader PBR                                                         */
-/* ================================================================== */
-static const char *VS_SRC =
-    "#version 330 core\n"
-    "layout(location=0) in vec3 aPos;\n"
-    "layout(location=1) in vec3 aNormal;\n"
-    "layout(location=2) in vec2 aUV0;\n"
-    "layout(location=3) in vec2 aUV1;\n"
-    "uniform mat4 uView;\n"
-    "uniform mat4 uProj;\n"
-    "out vec3 vWorldPos;\n"
-    "out vec3 vNormal;\n"
-    "out vec2 vUV0;\n"
-    "out vec2 vUV1;\n"
-    "void main() {\n"
-    "  vWorldPos = aPos;\n"
-    "  vNormal   = aNormal;\n"
-    "  vUV0      = aUV0;\n"
-    "  vUV1      = aUV1;\n"
-    "  gl_Position = uProj * uView * vec4(aPos, 1.0);\n"
-    "}\n";
-
-static const char *FS_SRC =
-    "#version 330 core\n"
-    "in vec3 vWorldPos;\n"
-    "in vec3 vNormal;\n"
-    "in vec2 vUV0;\n"
-    "in vec2 vUV1;\n"
-    "out vec4 FragColor;\n"
-    "\n"
-    "const float PI = 3.14159265359;\n"
-    "\n"
-    "/* ---- Material ---- */\n"
-    "uniform vec4  uBaseColor;\n"
-    "uniform float uMetallic;\n"
-    "uniform float uRoughness;\n"
-    "uniform vec3  uEmissive;\n"
-    "uniform float uNormalScale;\n"
-    "uniform float uOcclusionStr;\n"
-    "uniform float uAlphaCutoff;\n"
-    "uniform int   uAlphaMode;      /* 0=OPAQUE 1=MASK 2=BLEND */\n"
-    "uniform int   uHasAlbedo, uHasMR, uHasNormal, uHasOcc, uHasEmissive;\n"
-    "uniform int   uUVAlbedo, uUVMR, uUVNormal, uUVOcc, uUVEmis;\n"
-    "uniform sampler2D uAlbedoTex;\n"
-    "uniform sampler2D uMrTex;\n"
-    "uniform sampler2D uNormalTex;\n"
-    "uniform sampler2D uOcclusionTex;\n"
-    "uniform sampler2D uEmissiveTex;\n"
-    "\n"
-    "/* ---- Lighting ---- */\n"
-    "uniform vec3  uCamPos;\n"
-    "uniform vec3  uSunDir;\n"
-    "uniform vec3  uSunColor;\n"
-    "uniform float uExposure;\n"
-    "uniform int   uUseIBL;\n"
-    "uniform samplerCube uIrradiance;\n"
-    "uniform samplerCube uPrefilter;\n"
-    "uniform sampler2D   uBrdfLUT;\n"
-    "\n"
-    "vec2 pickUV(int set) { return set == 0 ? vUV0 : vUV1; }\n"
-    "\n"
-    "float distributionGGX(vec3 N, vec3 H, float roughness) {\n"
-    "  float a  = roughness * roughness;\n"
-    "  float a2 = a * a;\n"
-    "  float NdotH = max(dot(N, H), 0.0);\n"
-    "  float d = NdotH * NdotH * (a2 - 1.0) + 1.0;\n"
-    "  return a2 / (PI * d * d + 1e-6);\n"
-    "}\n"
-    "\n"
-    "float geomSchlick(float NdotX, float k) {\n"
-    "  return NdotX / (NdotX * (1.0 - k) + k);\n"
-    "}\n"
-    "\n"
-    "vec3 fresnelSchlick(float VdotH, vec3 F0) {\n"
-    "  return F0 + (1.0 - F0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);\n"
-    "}\n"
-    "\n"
-    "vec3 fresnelSchlickRoughness(float NdotV, vec3 F0, float roughness) {\n"
-    "  vec3 fr = max(vec3(1.0 - roughness), F0);\n"
-    "  return F0 + (fr - F0) * pow(clamp(1.0 - NdotV, 0.0, 1.0), 5.0);\n"
-    "}\n"
-    "\n"
-    "/* TBN dari derivative (tanpa atribut tangent) */\n"
-    "vec3 perturbNormal(vec3 N, vec3 pos, vec2 uv, vec3 mapN) {\n"
-    "  vec3 dp1 = dFdx(pos), dp2 = dFdy(pos);\n"
-    "  vec2 duv1 = dFdx(uv),  duv2 = dFdy(uv);\n"
-    "  vec3 dp2p = cross(dp2, N), dp1p = cross(N, dp1);\n"
-    "  vec3 T = dp2p * duv1.x + dp1p * duv2.x;\n"
-    "  vec3 B = dp2p * duv1.y + dp1p * duv2.y;\n"
-    "  float invmax = inversesqrt(max(dot(T, T), dot(B, B)));\n"
-    "  return normalize(mat3(T * invmax, B * invmax, N) * mapN);\n"
-    "}\n"
-    "\n"
-    "vec3 aces(vec3 x) {\n"
-    "  const float a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;\n"
-    "  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);\n"
-    "}\n"
-    "\n"
-    "void main() {\n"
-    "  vec4 base = uBaseColor;\n"
-    "  if (uHasAlbedo == 1) base *= texture(uAlbedoTex, pickUV(uUVAlbedo));\n"
-    "\n"
-    "  if (uAlphaMode == 1 && base.a < uAlphaCutoff) discard;\n"
-    "\n"
-    "  vec3 albedo = base.rgb;\n"
-    "  float metallic = uMetallic;\n"
-    "  float roughness = uRoughness;\n"
-    "  if (uHasMR == 1) {\n"
-    "    vec3 mr = texture(uMrTex, pickUV(uUVMR)).rgb;\n"
-    "    roughness *= mr.g;   /* G = roughness */\n"
-    "    metallic  *= mr.b;   /* B = metallic  */\n"
-    "  }\n"
-    "  roughness = clamp(roughness, 0.045, 1.0);\n"
-    "  metallic  = clamp(metallic, 0.0, 1.0);\n"
-    "\n"
-    "  vec3 N = normalize(vNormal);\n"
-    "  if (uHasNormal == 1) {\n"
-    "    vec3 mapN = texture(uNormalTex, pickUV(uUVNormal)).xyz * 2.0 - 1.0;\n"
-    "    mapN.xy *= uNormalScale;\n"
-    "    N = perturbNormal(N, vWorldPos, pickUV(uUVNormal), normalize(mapN));\n"
-    "  }\n"
-    "\n"
-    "  float ao = 1.0;\n"
-    "  if (uHasOcc == 1) {\n"
-    "    float occ = texture(uOcclusionTex, pickUV(uUVOcc)).r;\n"
-    "    ao = mix(1.0, occ, uOcclusionStr);\n"
-    "  }\n"
-    "\n"
-    "  vec3 emissive = uEmissive;\n"
-    "  if (uHasEmissive == 1)\n"
-    "    emissive *= texture(uEmissiveTex, pickUV(uUVEmis)).rgb;\n"
-    "\n"
-    "  vec3 V = normalize(uCamPos - vWorldPos);\n"
-    "  float NdotV = max(dot(N, V), 1e-4);\n"
-    "  vec3 F0 = mix(vec3(0.04), albedo, metallic);\n"
-    "\n"
-    "  /* ---- Direct: satu directional sun (Cook-Torrance) ---- */\n"
-    "  vec3 L = normalize(uSunDir);\n"
-    "  vec3 H = normalize(V + L);\n"
-    "  float NdotL = max(dot(N, L), 0.0);\n"
-    "  vec3 direct = vec3(0.0);\n"
-    "  if (NdotL > 0.0) {\n"
-    "    float VdotH = max(dot(V, H), 0.0);\n"
-    "    vec3  F = fresnelSchlick(VdotH, F0);\n"
-    "    float D = distributionGGX(N, H, roughness);\n"
-    "    float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;\n"
-    "    float G = geomSchlick(NdotV, k) * geomSchlick(NdotL, k);\n"
-    "    vec3 spec = D * G * F / (4.0 * NdotV * NdotL + 1e-4);\n"
-    "    vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);\n"
-    "    direct = (kd * albedo / PI + spec) * NdotL * uSunColor;\n"
-    "  }\n"
-    "\n"
-    "  /* ---- Ambient: IBL split-sum (irradiance + prefilter + LUT) ---- */\n"
-    "  vec3 ambient;\n"
-    "  if (uUseIBL == 1) {\n"
-    "    vec3 R = reflect(-V, N);\n"
-    "    vec3 F = fresnelSchlickRoughness(NdotV, F0, roughness);\n"
-    "    vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);\n"
-    "    vec3 diff = textureLod(uIrradiance, N, 0.0).rgb;\n"
-    "    vec3 pre  = textureLod(uPrefilter, R, roughness * 4.0).rgb;\n"
-    "    vec2 brdf = textureLod(uBrdfLUT, vec2(NdotV, roughness), 0.0).rg;\n"
-    "    ambient = (kd * diff * albedo + pre * (F0 * brdf.x + brdf.y)) * ao;\n"
-    "  } else {\n"
-    "    ambient = vec3(0.12, 0.13, 0.15) * albedo * ao;\n"
-    "  }\n"
-    "\n"
-    "  vec3 color = ambient + direct + emissive;\n"
-    "  color = aces(color * uExposure);\n"
-    "  color = pow(color, vec3(1.0 / 2.2));\n"
-    "  FragColor = vec4(color, uAlphaMode == 2 ? base.a : 1.0);\n"
-    "}\n";
+#define CONFIG_FILE "glb_viewer.ini"
+#define SHADER_VS   "shaders/pbr.vert"
+#define SHADER_FS   "shaders/pbr.frag"
 
 /* ================================================================== */
 /*  State                                                              */
@@ -201,6 +37,7 @@ struct AppState {
 
   GLuint program;
   Material default_mat;
+  Hud *hud;
 
   struct {
     GLint view, proj, cam_pos;
@@ -208,30 +45,112 @@ struct AppState {
     GLint normal_scale, occlusion_str, alpha_cutoff, alpha_mode;
     GLint has_albedo, has_mr, has_normal, has_occ, has_emissive;
     GLint uv_albedo, uv_mr, uv_normal, uv_occ, uv_emis;
-    GLint sun_dir;      
-    GLint sun_color;    
-    GLint exposure;   
+    GLint sun_dir, sun_color, exposure, use_ibl;
+    GLint debug_mode, vignette, screen_size;
   } u;
 
-  /* Input */
-  int dragging;
+  int    dragging;
   double last_x, last_y;
 
-  /* FPS */
   double fps_last;
-  int fps_frames;
+  int    fps_frames;
+
+  double last_time;
+  float  fps;
 
   float exposure;
-  vec3 sun_dir;
-  vec3 sun_color;
+  vec3  sun_dir;
+  vec3  sun_color;
+
+  int   wireframe;
+  int   auto_rotate;
+  int   use_ibl_user;
+  int   debug_mode;
+  float vignette;
+  int   screenshot_pending;
+
+  char *model_path;
+  char *hdr_path;
 };
+
+/* Forward decls untuk fungsi yang dipakai callback tapi didefinisi di bawah */
+static void snapshot_config(const struct AppState *app, ViewerConfig *cfg);
+static void reload_model(struct AppState *app);
+void        app_reload_ibl(struct AppState *app);   /* dipakai cb_drop */
+
+
+/* ================================================================== */
+/*  Helper: baca file teks                                            */
+/* ================================================================== */
+static char *read_text_file(const char *path) {
+  FILE *f = fopen(path, "rb");
+  if (!f) return NULL;
+  fseek(f, 0, SEEK_END);
+  long sz = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  if (sz <= 0) { fclose(f); return NULL; }
+  char *buf = (char *)malloc((size_t)sz + 1);
+  if (!buf) { fclose(f); return NULL; }
+  if (fread(buf, 1, (size_t)sz, f) != (size_t)sz) {
+    fclose(f); free(buf); return NULL;
+  }
+  buf[sz] = 0;
+  fclose(f);
+  return buf;
+}
+
+/* ================================================================== */
+/*  Shader load & reload                                              */
+/* ================================================================== */
+static void set_sampler_uniforms(GLuint p) {
+  glUniform1i(glGetUniformLocation(p, "uAlbedoTex"),    0);
+  glUniform1i(glGetUniformLocation(p, "uMrTex"),        1);
+  glUniform1i(glGetUniformLocation(p, "uNormalTex"),    2);
+  glUniform1i(glGetUniformLocation(p, "uOcclusionTex"), 3);
+  glUniform1i(glGetUniformLocation(p, "uEmissiveTex"),  4);
+  glUniform1i(glGetUniformLocation(p, "uIrradiance"),   5);
+  glUniform1i(glGetUniformLocation(p, "uPrefilter"),    6);
+  glUniform1i(glGetUniformLocation(p, "uBrdfLUT"),      7);
+}
+
+static void cache_uniforms(struct AppState *app);
+
+static GLuint load_program_from_files(void) {
+  char *vs = read_text_file(SHADER_VS);
+  char *fs = read_text_file(SHADER_FS);
+  if (!vs || !fs) {
+    log_error("[shader] gagal baca %s / %s", SHADER_VS, SHADER_FS);
+    free(vs); free(fs);
+    return 0;
+  }
+  GLuint p = shader_build(vs, fs);
+  free(vs); free(fs);
+  return p;
+}
+
+static int reload_shader(struct AppState *app) {
+  GLuint new_prog = load_program_from_files();
+  if (!new_prog) {
+    log_error("[shader] reload gagal, program lama tetap dipakai");
+    return 0;
+  }
+  GLuint old = app->program;
+  app->program = new_prog;
+  glUseProgram(app->program);
+  set_sampler_uniforms(app->program);
+  cache_uniforms(app);
+  if (old) glDeleteProgram(old);
+  log_info("[shader] reload OK");
+  return 1;
+}
 
 /* ================================================================== */
 /*  Callbacks                                                          */
 /* ================================================================== */
+
 static void cb_mouse_button(GLFWwindow *w, int button, int action, int mods) {
   (void)mods;
-  AppState *app = (AppState *)glfwGetWindowUserPointer(w);
+  struct AppState *app = (struct AppState *)glfwGetWindowUserPointer(w);
   if (button == GLFW_MOUSE_BUTTON_LEFT) {
     app->dragging = (action == GLFW_PRESS);
     glfwGetCursorPos(w, &app->last_x, &app->last_y);
@@ -239,7 +158,7 @@ static void cb_mouse_button(GLFWwindow *w, int button, int action, int mods) {
 }
 
 static void cb_cursor_pos(GLFWwindow *w, double x, double y) {
-  AppState *app = (AppState *)glfwGetWindowUserPointer(w);
+  struct AppState *app = (struct AppState *)glfwGetWindowUserPointer(w);
   if (!app->dragging) return;
   float dx = (float)(x - app->last_x);
   float dy = (float)(y - app->last_y);
@@ -250,8 +169,95 @@ static void cb_cursor_pos(GLFWwindow *w, double x, double y) {
 
 static void cb_scroll(GLFWwindow *w, double xo, double yo) {
   (void)xo;
-  AppState *app = (AppState *)glfwGetWindowUserPointer(w);
+  struct AppState *app = (struct AppState *)glfwGetWindowUserPointer(w);
   camera_zoom(&app->camera, (float)yo);
+}
+
+static void cb_key(GLFWwindow *w, int key, int scancode, int action,
+                   int mods) {
+  (void)scancode;
+  if (action != GLFW_PRESS) return;
+  struct AppState *app = (struct AppState *)glfwGetWindowUserPointer(w);
+
+    if ((mods & GLFW_MOD_CONTROL) && key == GLFW_KEY_S) {
+      ViewerConfig cfg;
+      snapshot_config((const struct AppState *)app, &cfg);
+      if (config_save(&cfg, CONFIG_FILE))
+        log_info("Config disimpan: %s", CONFIG_FILE);
+      else
+        log_error("Config gagal disimpan: %s", CONFIG_FILE);
+      return;
+  }
+
+  switch (key) {
+    case GLFW_KEY_ESCAPE: glfwSetWindowShouldClose(w, GLFW_TRUE); break;
+    case GLFW_KEY_F:
+      app->wireframe = !app->wireframe;
+      log_info("Wireframe: %s", app->wireframe ? "ON" : "OFF");
+      break;
+    case GLFW_KEY_SPACE:
+      app->auto_rotate = !app->auto_rotate;
+      log_info("Auto-rotate: %s", app->auto_rotate ? "ON" : "OFF");
+      break;
+    case GLFW_KEY_I:
+      app->use_ibl_user = !app->use_ibl_user;
+      log_info("IBL: %s", app->use_ibl_user ? "ON" : "OFF");
+      break;
+    case GLFW_KEY_EQUAL:
+    case GLFW_KEY_KP_ADD:
+      app->exposure *= 1.1f;
+      if (app->exposure > 10.0f) app->exposure = 10.0f;
+      log_info("Exposure: %.2f", app->exposure);
+      break;
+    case GLFW_KEY_MINUS:
+    case GLFW_KEY_KP_SUBTRACT:
+      app->exposure /= 1.1f;
+      if (app->exposure < 0.1f) app->exposure = 0.1f;
+      log_info("Exposure: %.2f", app->exposure);
+      break;
+    case GLFW_KEY_P:
+      app->screenshot_pending = 1;
+      break;
+    case GLFW_KEY_R:
+      reload_model(app);
+      break;
+    case GLFW_KEY_HOME:
+      camera_init(&app->camera, app->model.center, app->model.radius);
+      log_info("Camera reset");
+      break;
+    case GLFW_KEY_F5:
+      reload_shader(app);
+      break;
+    case GLFW_KEY_0: app->debug_mode = 0; log_info("Debug: OFF"); break;
+    case GLFW_KEY_1: app->debug_mode = 1; log_info("Debug: albedo"); break;
+    case GLFW_KEY_2: app->debug_mode = 2; log_info("Debug: normal"); break;
+    case GLFW_KEY_3: app->debug_mode = 3; log_info("Debug: metallic"); break;
+    case GLFW_KEY_4: app->debug_mode = 4; log_info("Debug: roughness"); break;
+    case GLFW_KEY_5: app->debug_mode = 5; log_info("Debug: ao"); break;
+    case GLFW_KEY_6: app->debug_mode = 6; log_info("Debug: emissive"); break;
+    case GLFW_KEY_7: app->debug_mode = 7; log_info("Debug: uv"); break;
+  }
+}
+
+static void cb_drop(GLFWwindow *w, int count, const char **paths) {
+  struct AppState *app = (struct AppState *)glfwGetWindowUserPointer(w);
+  if (count < 1 || !paths[0]) return;
+  const char *p = paths[0];
+  size_t n = strlen(p);
+  int is_hdr = (n > 4 && strcmp(p + n - 4, ".hdr") == 0);
+
+  if (is_hdr) {
+    free(app->hdr_path);
+    app->hdr_path = strdup(p);
+    log_info("Drop HDR: %s", p);
+    /* setup_ibl forward declaration tidak diekspos; panggil ulang via reload */
+    app_reload_ibl(app);
+  } else {
+    free(app->model_path);
+    app->model_path = strdup(p);
+    log_info("Drop model: %s", p);
+    reload_model(app);
+  }
 }
 
 /* ================================================================== */
@@ -297,7 +303,7 @@ static void setup_gl_state(void) {
   glDepthFunc(GL_LESS);
 }
 
-static void cache_uniforms(AppState *app) {
+static void cache_uniforms(struct AppState *app) {
   GLuint p = app->program;
   app->u.view         = glGetUniformLocation(p, "uView");
   app->u.proj         = glGetUniformLocation(p, "uProj");
@@ -320,40 +326,34 @@ static void cache_uniforms(AppState *app) {
   app->u.uv_normal    = glGetUniformLocation(p, "uUVNormal");
   app->u.uv_occ       = glGetUniformLocation(p, "uUVOcc");
   app->u.uv_emis      = glGetUniformLocation(p, "uUVEmis");
-  app->u.uv_emis      = glGetUniformLocation(p, "uUVEmis");
   app->u.sun_dir      = glGetUniformLocation(p, "uSunDir");
   app->u.sun_color    = glGetUniformLocation(p, "uSunColor");
   app->u.exposure     = glGetUniformLocation(p, "uExposure");
+  app->u.use_ibl      = glGetUniformLocation(p, "uUseIBL");
+  app->u.debug_mode   = glGetUniformLocation(p, "uDebugMode");
+  app->u.vignette     = glGetUniformLocation(p, "uVignette");
+  app->u.screen_size  = glGetUniformLocation(p, "uScreenSize");
 }
 
-static int setup_shader(AppState *app) {
-  app->program = shader_build(VS_SRC, FS_SRC);
+static int setup_shader(struct AppState *app) {
+  app->program = load_program_from_files();
   if (!app->program) return 0;
-
   glUseProgram(app->program);
-  glUniform1i(glGetUniformLocation(app->program, "uAlbedoTex"),   0);
-  glUniform1i(glGetUniformLocation(app->program, "uMrTex"),       1);
-  glUniform1i(glGetUniformLocation(app->program, "uNormalTex"),   2);
-  glUniform1i(glGetUniformLocation(app->program, "uOcclusionTex"),3);
-  glUniform1i(glGetUniformLocation(app->program, "uEmissiveTex"), 4);
-  glUniform1i(glGetUniformLocation(app->program, "uIrradiance"),  5);
-  glUniform1i(glGetUniformLocation(app->program, "uPrefilter"),   6);
-  glUniform1i(glGetUniformLocation(app->program, "uBrdfLUT"),     7);
-
+  set_sampler_uniforms(app->program);
   cache_uniforms(app);
   return 1;
 }
 
-static void setup_ibl(AppState *app, const char *hdr_path) {
+static void setup_ibl_internal(struct AppState *app) {
   int env_w = 0, env_h = 0;
   float *env_data = NULL;
 
-  if (hdr_path) {
-    env_data = ibl_env_load_hdr(hdr_path, &env_w, &env_h);
+  if (app->hdr_path) {
+    env_data = ibl_env_load_hdr(app->hdr_path, &env_w, &env_h);
     if (env_data)
-      log_info("Environment HDR: %s (%dx%d)", hdr_path, env_w, env_h);
+      log_info("Environment HDR: %s (%dx%d)", app->hdr_path, env_w, env_h);
     else
-      log_warn("Gagal memuat .hdr: %s (pakai prosedural)", hdr_path);
+      log_warn("Gagal memuat .hdr: %s (pakai prosedural)", app->hdr_path);
   }
   if (!env_data)
     env_data = ibl_env_procedural(&env_w, &env_h);
@@ -362,13 +362,15 @@ static void setup_ibl(AppState *app, const char *hdr_path) {
   free(env_data);
   if (!app->ibl_ok)
     log_warn("[ibl] bake gagal, pakai ambient konstan");
-
-  glUseProgram(app->program);
-  glUniform1i(glGetUniformLocation(app->program, "uUseIBL"),
-              app->ibl_ok ? 1 : 0);
 }
 
-static int load_model_and_camera(AppState *app, const char *path) {
+/* Dipakai oleh drag-and-drop untuk reload env */
+void app_reload_ibl(struct AppState *app) {
+  ibl_free(&app->ibl);
+  setup_ibl_internal(app);
+}
+
+static int load_model_and_camera(struct AppState *app, const char *path) {
   if (!model_load(&app->model, path)) {
     log_error("Gagal memuat model: %s", path);
     return 0;
@@ -376,12 +378,11 @@ static int load_model_and_camera(AppState *app, const char *path) {
   log_info("Model dimuat: %zu mesh, %zu material, radius=%.3f",
            app->model.mesh_count, app->model.material_count,
            app->model.radius);
-
   camera_init(&app->camera, app->model.center, app->model.radius);
   return 1;
 }
 
-static void setup_default_material(AppState *app) {
+static void setup_default_material(struct AppState *app) {
   Material *m = &app->default_mat;
   memset(m, 0, sizeof(*m));
   m->base_color[0] = m->base_color[1] = 0.8f;
@@ -392,10 +393,90 @@ static void setup_default_material(AppState *app) {
   m->alpha_cutoff = 0.5f;
 }
 
+static void reload_model(struct AppState *app) {
+  if (!app->model_path) return;
+  log_info("Reload: %s", app->model_path);
+  model_free(&app->model);
+  if (!model_load(&app->model, app->model_path)) {
+    log_error("Reload gagal — keluar");
+    glfwSetWindowShouldClose(app->window, GLFW_TRUE);
+    return;
+  }
+  camera_init(&app->camera, app->model.center, app->model.radius);
+}
+
 /* ================================================================== */
-/*  Render                                                             */
+/*  Config <-> AppState                                               */
 /* ================================================================== */
-static void render_pass(AppState *app, int blend_pass) {
+static void apply_config(struct AppState *app, const ViewerConfig *cfg) {
+  app->exposure     = cfg->exposure;
+  app->wireframe    = cfg->wireframe;
+  app->auto_rotate  = cfg->auto_rotate;
+  app->use_ibl_user = cfg->use_ibl;
+  app->debug_mode   = cfg->debug_mode;
+  app->vignette     = cfg->vignette;
+  glm_vec3_copy(cfg->sun_dir,   app->sun_dir);
+  glm_vec3_copy(cfg->sun_color, app->sun_color);
+}
+
+static void snapshot_config(const struct AppState *app, ViewerConfig *cfg) {
+  memset(cfg, 0, sizeof(*cfg));
+  cfg->exposure     = app->exposure;
+  cfg->wireframe    = app->wireframe;
+  cfg->auto_rotate  = app->auto_rotate;
+  cfg->use_ibl      = app->use_ibl_user;
+  cfg->debug_mode   = app->debug_mode;
+  cfg->vignette     = app->vignette;
+  glm_vec3_copy(app->sun_dir,   cfg->sun_dir);
+  glm_vec3_copy(app->sun_color, cfg->sun_color);
+}
+
+
+
+/* ================================================================== */
+/*  Screenshot                                                         */
+/* ================================================================== */
+static void take_screenshot(struct AppState *app) {
+  int w = 0, h = 0;
+  glfwGetFramebufferSize(app->window, &w, &h);
+  if (w <= 0 || h <= 0) return;
+
+  size_t stride = (size_t)w * 3;
+  unsigned char *pixels = (unsigned char *)malloc(stride * (size_t)h);
+  if (!pixels) { log_error("Screenshot: OOM"); return; }
+
+  glPixelStorei(GL_PACK_ALIGNMENT, 1);
+  glReadPixels(0, 0, w, h, GL_RGB, GL_UNSIGNED_BYTE, pixels);
+
+  /* flip vertikal */
+  unsigned char *tmp = (unsigned char *)malloc(stride);
+  if (tmp) {
+    for (int y = 0; y < h / 2; y++) {
+      unsigned char *top = pixels + (size_t)y * stride;
+      unsigned char *bot = pixels + (size_t)(h - 1 - y) * stride;
+      memcpy(tmp, top, stride);
+      memcpy(top, bot, stride);
+      memcpy(bot, tmp, stride);
+    }
+    free(tmp);
+  }
+
+  char fname[128];
+  time_t t = time(NULL);
+  snprintf(fname, sizeof(fname), "screenshot_%lld.png", (long long)t);
+
+  if (stbi_write_png(fname, w, h, 3, pixels, (int)stride))
+    log_info("Screenshot: %s (%dx%d)", fname, w, h);
+  else
+    log_error("Screenshot: gagal tulis %s", fname);
+
+  free(pixels);
+}
+
+/* ================================================================== */
+/*  Render                                                            */
+/* ================================================================== */
+static void render_pass(struct AppState *app, int blend_pass) {
   if (blend_pass) {
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -452,7 +533,52 @@ static void render_pass(AppState *app, int blend_pass) {
   }
 }
 
-static void render_frame(AppState *app) {
+static const char *debug_mode_name(int m) {
+  switch (m) {
+    case 0: return "OFF";
+    case 1: return "albedo";
+    case 2: return "normal";
+    case 3: return "metallic";
+    case 4: return "roughness";
+    case 5: return "ao";
+    case 6: return "emissive";
+    case 7: return "uv";
+    default: return "?";
+  }
+}
+
+static void draw_hud(struct AppState *app, int fb_w, int fb_h) {
+  char line1[256], line2[256];
+  const char *base = strrchr(app->model_path, '/');
+  base = base ? base + 1 : app->model_path;
+
+  snprintf(line1, sizeof(line1), "%s", base ? base : "(no model)");
+  snprintf(line2, sizeof(line2),
+           "FPS %.1f | Exp %.2f | IBL %s | Debug %s",
+           app->fps, app->exposure,
+           (app->ibl_ok && app->use_ibl_user) ? "ON" : "OFF",
+           debug_mode_name(app->debug_mode));
+
+  HudLine lines[] = {
+    { line1, { 255, 255, 255, 255 } },
+    { line2, { 200, 220, 255, 255 } },
+    { "[F] wire  [Space] auto  [I] ibl  [P] shot  [R] reload  "
+      "[F5] shader  [0-7] debug  [Home] reset",
+      { 170, 170, 170, 255 } },
+  };
+  hud_draw(app->hud, (float)fb_w, (float)fb_h, lines, 3);
+}
+
+static void render_frame(struct AppState *app) {
+  double now = glfwGetTime();
+  double dt  = now - app->last_time;
+  app->last_time = now;
+  if (dt < 0.0) dt = 0.0;
+  if (dt > 0.1) dt = 0.1;
+
+  if (app->auto_rotate && !app->dragging)
+    app->camera.yaw += (float)dt * 0.4f;
+
   int fb_w = 0, fb_h = 0;
   glfwGetFramebufferSize(app->window, &fb_w, &fb_h);
   glViewport(0, 0, fb_w, fb_h);
@@ -469,7 +595,8 @@ static void render_frame(AppState *app) {
   float aspect = (fb_h > 0) ? (float)fb_w / (float)fb_h : 1.0f;
   camera_get_projection(&app->camera, aspect, proj);
 
-  if (app->ibl_ok) {
+  /* Background: hanya kalau bukan mode debug */
+  if (app->ibl_ok && app->debug_mode == 0) {
     mat4 vp, inv_vp;
     glm_mat4_mul(proj, view, vp);
     glm_mat4_inv(vp, inv_vp);
@@ -480,14 +607,15 @@ static void render_frame(AppState *app) {
   glUseProgram(app->program);
   glUniformMatrix4fv(app->u.view, 1, GL_FALSE, (float *)view);
   glUniformMatrix4fv(app->u.proj, 1, GL_FALSE, (float *)proj);
-  glUniform3fv(app->u.cam_pos, 1, eye);
-  glUniform3fv(glGetUniformLocation(app->program, "uSunDir"), 1, app->sun_dir);
-  glUniform3fv(glGetUniformLocation(app->program, "uSunColor"), 1,
-               app->sun_color);
-  glUniform1f(glGetUniformLocation(app->program, "uExposure"), app->exposure);
+  glUniform3fv(app->u.cam_pos,   1, eye);
   glUniform3fv(app->u.sun_dir,   1, app->sun_dir);
   glUniform3fv(app->u.sun_color, 1, app->sun_color);
   glUniform1f(app->u.exposure,      app->exposure);
+  glUniform1f(app->u.vignette,      app->vignette);
+  glUniform2f(app->u.screen_size,   (float)fb_w, (float)fb_h);
+  glUniform1i(app->u.debug_mode,    app->debug_mode);
+  glUniform1i(app->u.use_ibl,
+              (app->ibl_ok && app->use_ibl_user) ? 1 : 0);
 
   if (app->ibl_ok) {
     glActiveTexture(GL_TEXTURE5);
@@ -499,52 +627,72 @@ static void render_frame(AppState *app) {
     glActiveTexture(GL_TEXTURE0);
   }
 
-  render_pass(app, 0); /* opaque */
-  render_pass(app, 1); /* blend  */
+  if (app->wireframe)
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+  render_pass(app, 0);
+  render_pass(app, 1);
+
+  if (app->wireframe)
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
   glBindVertexArray(0);
+
+  if (app->screenshot_pending) {
+    app->screenshot_pending = 0;
+    take_screenshot(app);
+  }
+
+  /* HUD paling akhir, sebelum swap */
+  glUseProgram(0);
+  if (app->hud) draw_hud(app, fb_w, fb_h);
+
   glfwSwapBuffers(app->window);
 }
 
-static void update_title(AppState *app) {
+static void update_fps(struct AppState *app) {
   double now = glfwGetTime();
   app->fps_frames++;
   if (now - app->fps_last >= 0.5) {
-    double fps = app->fps_frames / (now - app->fps_last);
+    app->fps = (float)(app->fps_frames / (now - app->fps_last));
     app->fps_last = now;
     app->fps_frames = 0;
-    char title[128];
-    snprintf(title, sizeof(title), "GLB Viewer — %.1f FPS", fps);
+
+    char title[192];
+    snprintf(title, sizeof(title),
+             "GLB Viewer — %.1f FPS — exp %.2f",
+             app->fps, app->exposure);
     glfwSetWindowTitle(app->window, title);
   }
 }
 
 /* ================================================================== */
-/*  Public API                                                         */
+/*  Public API                                                        */
 /* ================================================================== */
-AppState *app_create(int argc, char **argv) {
+struct AppState *app_create(int argc, char **argv) {
   setvbuf(stdout, NULL, _IONBF, 0);
-
   if (argc < 2) {
     log_error("Usage: %s <model.glb> [env.hdr]", argv[0]);
     return NULL;
   }
 
-  AppState *app = (AppState *)calloc(1, sizeof(AppState));
+  struct AppState *app = (struct AppState *)calloc(1, sizeof(struct AppState));
   if (!app) return NULL;
 
-  app->exposure = 1.0f;
-  app->sun_dir[0] = 0.5f;
-  app->sun_dir[1] = 1.0f;
-  app->sun_dir[2] = 0.3f;
-  glm_vec3_normalize(app->sun_dir);
-  app->sun_color[0] = 3.0f;
-  app->sun_color[1] = 2.85f;
-  app->sun_color[2] = 2.55f;
+  /* default (di-override config kalau ada) */
+  ViewerConfig cfg;
+  config_defaults(&cfg);
+  if (config_load(&cfg, CONFIG_FILE))
+    log_info("Config dimuat: %s", CONFIG_FILE);
+  apply_config(app, &cfg);
+
+  app->last_time  = glfwGetTime();
+  app->model_path = strdup(argv[1]);
+  if (argc >= 3) app->hdr_path = strdup(argv[2]);
 
   if (!glfwInit()) {
     log_error("glfwInit gagal");
-    free(app);
+    free(app->model_path); free(app->hdr_path); free(app);
     return NULL;
   }
 
@@ -552,55 +700,70 @@ AppState *app_create(int argc, char **argv) {
   if (!app->window) {
     log_error("Gagal membuat window GLFW");
     glfwTerminate();
-    free(app);
+    free(app->model_path); free(app->hdr_path); free(app);
     return NULL;
   }
   glfwMakeContextCurrent(app->window);
   glfwSwapInterval(1);
   glfwSetWindowUserPointer(app->window, app);
   glfwSetMouseButtonCallback(app->window, cb_mouse_button);
-  glfwSetCursorPosCallback(app->window, cb_cursor_pos);
-  glfwSetScrollCallback(app->window, cb_scroll);
+  glfwSetCursorPosCallback(app->window,   cb_cursor_pos);
+  glfwSetScrollCallback(app->window,      cb_scroll);
+  glfwSetKeyCallback(app->window,         cb_key);
+  glfwSetDropCallback(app->window,        cb_drop);
 
   if (!setup_gl()) { app_destroy(app); return NULL; }
-
   setup_gl_state();
+
   if (!setup_shader(app)) {
-    log_error("Gagal compile shader PBR");
+    log_error("Gagal compile shader PBR (cek %s / %s)",
+              SHADER_VS, SHADER_FS);
     app_destroy(app);
     return NULL;
   }
-  setup_ibl(app, argc >= 3 ? argv[2] : NULL);
+  setup_ibl_internal(app);
+
   if (!load_model_and_camera(app, argv[1])) {
     app_destroy(app);
     return NULL;
   }
   setup_default_material(app);
+
+  app->hud = hud_create();
+  if (!app->hud)
+    log_warn("HUD gagal dibuat; lanjut tanpa overlay");
+
   return app;
 }
 
-void app_run(AppState *app) {
+void app_run(struct AppState *app) {
   if (!app || !app->window) return;
-
   while (!glfwWindowShouldClose(app->window)) {
     render_frame(app);
-    update_title(app);
+    update_fps(app);
     glfwPollEvents();
-    if (glfwGetKey(app->window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-      glfwSetWindowShouldClose(app->window, GLFW_TRUE);
   }
 }
 
-void app_destroy(AppState *app) {
+void app_destroy(struct AppState *app) {
   if (!app) return;
+
+  /* Auto-save config saat keluar */
+  ViewerConfig cfg;
+  snapshot_config(app, &cfg);
+  if (config_save(&cfg, CONFIG_FILE))
+    log_info("Config disimpan: %s", CONFIG_FILE);
 
   if (app->program) glDeleteProgram(app->program);
   model_free(&app->model);
   ibl_free(&app->ibl);
+  hud_destroy(app->hud);
 
   if (app->window) {
     glfwDestroyWindow(app->window);
     glfwTerminate();
   }
+  free(app->model_path);
+  free(app->hdr_path);
   free(app);
 }

@@ -66,8 +66,10 @@ else()
   FetchContent_MakeAvailable(cglm)
 endif()
 
-# ---------- stb_image.h ----------
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image.h")
+# ---------- stb_image.h + stb_image_write.h ----------
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image.h"
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_image_write.h"
+   AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/external/stb_easy_font.h")
   set(STB_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external")
 else()
   include(FetchContent)
@@ -98,6 +100,8 @@ endif()
 set(GL_VIEWER_SOURCES
   src/main.c
   src/app/app.c
+  src/app/config.c        # ← tambah
+  src/app/hud.c           # ← tambah
   src/camera/camera.c
   src/core/log.c
   src/gl/gl_loader.c
@@ -151,3 +155,12 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/assets")
       "$<TARGET_FILE_DIR:glb_viewer>/assets"
   )
 endif()
+
+
+# ---------- Copy shaders (SELALU, di luar if assets) ----------
+add_custom_command(TARGET glb_viewer POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/shaders"
+    "$<TARGET_FILE_DIR:glb_viewer>/shaders"
+  COMMENT "Copy shaders -> $<TARGET_FILE_DIR:glb_viewer>/shaders"
+)

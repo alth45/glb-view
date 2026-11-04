@@ -96,6 +96,21 @@ typedef void GLvoid;
 #define GL_SRC_ALPHA            0x0302
 #define GL_ONE_MINUS_SRC_ALPHA  0x0303
 
+
+/* Depth compare */
+#define GL_LESS   0x0201
+#define GL_LEQUAL 0x0203
+
+/* Polygon mode */
+#define GL_FRONT_AND_BACK 0x0408
+#define GL_POINT          0x1B00
+#define GL_LINE           0x1B01
+#define GL_FILL           0x1B02
+
+/* Pixel store / read */
+#define GL_PACK_ALIGNMENT 0x0D05
+#define GL_RGB            0x1907
+
 /* ---------- Daftar fungsi GL ---------- */
 #define GL_FUNCTIONS(X)                                                        \
   X(void, glClear, (GLbitfield))                                               \
@@ -158,7 +173,12 @@ typedef void GLvoid;
   X(GLenum, glCheckFramebufferStatus, (GLenum))                                \
   X(void, glDrawArrays, (GLenum, GLint, GLsizei))                              \
   X(void, glDepthMask, (GLboolean))                                            \
-  X(void, glBlendFunc, (GLenum, GLenum))
+  X(void, glBlendFunc, (GLenum, GLenum))                                       \
+  X(void, glUniform2f, (GLint, GLfloat, GLfloat))                              \
+  X(void, glBufferSubData, (GLenum, GLintptr, GLsizeiptr, const void *))       \
+  X(void, glPolygonMode, (GLenum, GLenum))                                     \
+  X(void, glReadPixels,                                                        \
+    (GLint, GLint, GLsizei, GLsizei, GLenum, GLenum, void *))
 
 #define GL_DECL(ret, name, args)                                               \
   typedef ret(GLAPI *PFN_##name) args;                                         \

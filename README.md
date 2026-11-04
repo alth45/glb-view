@@ -19,6 +19,14 @@ renderer dipisah menjadi modul-modul kecil yang dapat dipakai ulang.
 - Custom OpenGL loader (tanpa GLEW/GLAD) — resolusi pointer via GLFW
 - FPS counter di judul window
 - Logging terpadu via `core/log.h` (semua ke stderr)
+- Wireframe, auto-rotate, toggle IBL, exposure, screenshot PNG
+- Reload model tanpa restart (untuk iterasi cepat)
+- Debug view modes (albedo / normal / metallic / roughness / AO / emissive / UV)
+- HUD overlay via `stb_easy_font` (FPS, exposure, status)
+- Vignette post-effect
+- Runtime shader reload (`F5`) — iterasi PBR tanpa restart
+- Drag-and-drop `.glb` / `.gltf` / `.hdr` ke window
+- Config persistent (`glb_viewer.ini`) — auto-load saat start, auto-save saat keluar
 
 ## Dependensi (semua otomatis di-download oleh CMake)
 
@@ -110,8 +118,8 @@ Hasil: `build-ninja\glb_viewer.exe`
 ### Windows (MSVC / Visual Studio 2022)
 
 ```powershell
-cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64
-cmake --build build-msvc --config Release
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release
 ```
 
 Hasil: `build-msvc\Release\glb_viewer.exe`
@@ -175,13 +183,22 @@ build-msvc\Release\glb_viewer.exe path\to\model.glb
 - Argumen kedua (opsional): file HDR equirectangular untuk IBL.
   Tanpa argumen ini, viewer memakai langit prosedural.
 
-## Kontrol
-
-| Aksi          | Input     |
-| ------------- | --------- |
-| Rotasi kamera | Drag kiri |
-| Zoom          | Scroll    |
-| Keluar        | Esc       |
+| Aksi                                                                          | Input                           |
+| ----------------------------------------------------------------------------- | ------------------------------- |
+| Rotasi kamera                                                                 | Drag kiri                       |
+| Zoom                                                                          | Scroll                          |
+| Wireframe toggle                                                              | `F`                             |
+| Auto-rotate toggle                                                            | `Space`                         |
+| Toggle IBL                                                                    | `I`                             |
+| Exposure naik / turun                                                         | `+` / `-`                       |
+| Debug view: OFF / albedo / normal / metallic / roughness / AO / emissive / UV | `0`..`7`                        |
+| Screenshot PNG                                                                | `P`                             |
+| Reload model                                                                  | `R`                             |
+| Reload shader                                                                 | `F5`                            |
+| Reset kamera                                                                  | `Home`                          |
+| Simpan config                                                                 | `Ctrl+S` (otomatis saat keluar) |
+| Muat model / HDR                                                              | Drag-and-drop ke window         |
+| Keluar                                                                        | `Esc`                           |
 
 ## Catatan teknis
 
