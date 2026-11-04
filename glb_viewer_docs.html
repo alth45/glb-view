@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GLB Viewer — Dokumentasi</title>
+  <meta name="description" content="Dokumentasi teknis proyek GLB Viewer: viewer file .glb/.gltf berbasis C dan OpenGL dengan PBR metallic-roughness dan IBL." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --bg2:       #13161e;
+      --bg3:       #1a1e28;
+      --border:    #252a36;
+      --accent:    #5b8def;
+      --accent2:   #7b6ef6;
+      --green:     #3ecf8e;
+      --yellow:    #f7c948;
+      --red:       #f06060;
+      --text:      #e2e6f0;
+      --text-dim:  #8892a4;
+      --text-code: #c9d1e0;
+      --radius:    10px;
+      --font:      'Inter', system-ui, sans-serif;
+      --mono:      'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 270px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 28px 0 40px;
+    }
+
+    .sidebar-logo {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .sidebar-logo h1 { font-size: 18px; font-weight: 700; letter-spacing: -.3px; }
+
+    .sidebar-logo .badge {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      background: rgba(91,141,239,.15);
+      color: var(--accent);
+      border: 1px solid rgba(91,141,239,.3);
+      border-radius: 100px;
+      padding: 2px 10px;
+    }
+
+    .nav-group-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      padding: 14px 24px 6px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 24px;
+      font-size: 13.5px;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+
+    .nav-link:hover, .nav-link.active {
+      color: var(--text);
+      background: rgba(255,255,255,.04);
+      border-left-color: var(--accent);
+    }
+
+    .main {
+      flex: 1;
+      max-width: 860px;
+      padding: 60px 56px;
+      margin: 0 auto;
+    }
+
+    section { margin-bottom: 72px; }
+
+    .section-heading {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -.4px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h3 { font-size: 17px; font-weight: 600; margin: 32px 0 12px; }
+
+    p { margin-bottom: 14px; }
+    p:last-child { margin-bottom: 0; }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(91,141,239,.12), rgba(123,110,246,.1));
+      border: 1px solid rgba(91,141,239,.25);
+      border-radius: 14px;
+      padding: 40px 44px;
+      margin-bottom: 48px;
+    }
+
+    .hero-tag { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+
+    .hero h2 {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -.6px;
+      margin-bottom: 14px;
+      background: linear-gradient(90deg, #e2e6f0, #8892a4);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p { font-size: 15.5px; color: var(--text-dim); max-width: 600px; margin-bottom: 28px; }
+
+    .hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 12px;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--bg3);
+      color: var(--text-dim);
+    }
+    .chip.green  { border-color: rgba(62,207,142,.3); color: var(--green);  background: rgba(62,207,142,.07); }
+    .chip.blue   { border-color: rgba(91,141,239,.3);  color: var(--accent); background: rgba(91,141,239,.07); }
+    .chip.purple { border-color: rgba(123,110,246,.3); color: var(--accent2); background: rgba(123,110,246,.07); }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .feature-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: border-color .2s;
+    }
+    .feature-card:hover { border-color: rgba(91,141,239,.4); }
+    .feature-card .icon { font-size: 22px; margin-bottom: 10px; }
+    .feature-card h4 { font-size: 13px; font-weight: 600; color: var(--text); margin: 0 0 6px; }
+    .feature-card p  { font-size: 12.5px; color: var(--text-dim); margin: 0; }
+
+    .code-block {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin: 16px 0;
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 16px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--text-dim);
+    }
+    .code-header .lang { font-weight: 600; color: var(--accent); }
+
+    pre {
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 1.65;
+      color: var(--text-code);
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: rgba(255,255,255,.07);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--accent);
+    }
+
+    .kw  { color: #c792ea; }
+    .ty  { color: #82aaff; }
+    .fn  { color: #82cfff; }
+    .str { color: #c3e88d; }
+    .cm  { color: #546e7a; font-style: italic; }
+    .num { color: #f78c6c; }
+    .pp  { color: #ffcb6b; }
+
+    .api-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      margin-bottom: 20px;
+    }
+
+    .api-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      background: var(--bg3);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .api-kind {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .api-kind.struct  { background: rgba(123,110,246,.2); color: var(--accent2); }
+    .api-kind.func    { background: rgba(91,141,239,.2);  color: var(--accent); }
+
+    .api-name { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+    .api-file { margin-left: auto; font-size: 11px; color: var(--text-dim); }
+    .api-body { padding: 16px 20px; }
+    .api-desc { font-size: 13.5px; color: var(--text-dim); margin-bottom: 14px; }
+
+    .field-table { width: 100%; border-collapse: collapse; }
+    .field-table th, .field-table td {
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 12.5px;
+      border-bottom: 1px solid var(--border);
+    }
+    .field-table th {
+      font-weight: 600;
+      color: var(--text-dim);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      background: rgba(255,255,255,.02);
+    }
+    .field-table td:first-child  { font-family: var(--mono); color: var(--green); }
+    .field-table td:nth-child(2) { font-family: var(--mono); color: var(--accent); }
+    .field-table td:last-child   { color: var(--text-dim); }
+    .field-table tr:last-child td { border-bottom: none; }
+
+    .pipeline {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 20px 0;
+    }
+
+    .pipeline-step {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+    .pipeline-step.accent { border-color: rgba(91,141,239,.4); color: var(--accent); }
+    .pipeline-step.green  { border-color: rgba(62,207,142,.4); color: var(--green); }
+    .pipeline-step.purple { border-color: rgba(123,110,246,.4); color: var(--accent2); }
+
+    .arrow { color: var(--text-dim); font-size: 16px; }
+
+    .callout {
+      display: flex;
+      gap: 12px;
+      padding: 14px 18px;
+      border-radius: var(--radius);
+      margin: 20px 0;
+      font-size: 13.5px;
+    }
+    .callout.info { background: rgba(91,141,239,.1); border: 1px solid rgba(91,141,239,.25); }
+    .callout.warn { background: rgba(247,201,72,.1);  border: 1px solid rgba(247,201,72,.3); }
+    .callout.tip  { background: rgba(62,207,142,.1);  border: 1px solid rgba(62,207,142,.3); }
+    .callout .ci  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+    .callout p    { margin: 0; }
+
+    .slot-table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    .slot-table th, .slot-table td {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border);
+    }
+    .slot-table th {
+      background: var(--bg3);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-dim);
+    }
+    .slot-table td:first-child { font-family: var(--mono); font-weight: 600; color: var(--yellow); }
+    .slot-table tr:last-child td { border-bottom: none; }
+
+    .step-list { list-style: none; counter-reset: steps; }
+    .step-list li {
+      counter-increment: steps;
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .step-list li::before {
+      content: counter(steps);
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+    .step-body strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .step-body p { font-size: 13.5px; color: var(--text-dim); margin-bottom: 8px; }
+
+    .ctrl-table { width: 100%; border-collapse: collapse; }
+    .ctrl-table th, .ctrl-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13.5px;
+      text-align: left;
+    }
+    .ctrl-table th {
+      background: var(--bg3);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-dim);
+    }
+    .ctrl-table td:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--yellow); white-space: nowrap; }
+    .ctrl-table tr:last-child td { border-bottom: none; }
+
+    .file-tree {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 2;
+    }
+    .ft-dir  { color: var(--accent); font-weight: 600; }
+    .ft-c    { color: var(--green); }
+    .ft-h    { color: var(--accent2); }
+    .ft-note { color: var(--text-dim); font-size: 11.5px; }
+
+    .dep-table { width: 100%; border-collapse: collapse; }
+    .dep-table th, .dep-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      text-align: left;
+    }
+    .dep-table th {
+      background: var(--bg3);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-dim);
+    }
+    .dep-table td:first-child { font-weight: 600; }
+    .dep-table td:nth-child(2) { font-family: var(--mono); font-size: 12px; color: var(--yellow); }
+    .dep-table tr:last-child td { border-bottom: none; }
+
+    .divider { height: 1px; background: var(--border); margin: 32px 0; }
+
+    .footer {
+      margin-top: 80px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+      .main { padding: 32px 22px; max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h1>GLB Viewer</h1>
+      <span class="badge">C + OpenGL &middot; v1.0</span>
+    </div>
+    <div class="nav-group-label">Gambaran Umum</div>
+    <a href="#overview"  class="nav-link"><span>&#128196;</span> Tentang Proyek</a>
+    <a href="#features"  class="nav-link"><span>&#10024;</span> Fitur</a>
+    <a href="#structure" class="nav-link"><span>&#128193;</span> Struktur File</a>
+    <a href="#deps"      class="nav-link"><span>&#128230;</span> Dependensi</a>
+    <div class="nav-group-label">Arsitektur</div>
+    <a href="#modules"   class="nav-link"><span>&#129521;</span> Modul</a>
+    <a href="#datatypes" class="nav-link"><span>&#128208;</span> Struktur Data</a>
+    <a href="#api"       class="nav-link"><span>&#9881;</span> API Publik</a>
+    <div class="nav-group-label">Rendering</div>
+    <a href="#shader"    class="nav-link"><span>&#127912;</span> Shader PBR</a>
+    <a href="#ibl"       class="nav-link"><span>&#128161;</span> IBL Pipeline</a>
+    <a href="#textures"  class="nav-link"><span>&#128444;</span> Tekstur &amp; Slot</a>
+    <a href="#renderloop"class="nav-link"><span>&#128257;</span> Render Loop</a>
+    <div class="nav-group-label">Penggunaan</div>
+    <a href="#build"     class="nav-link"><span>&#128296;</span> Build</a>
+    <a href="#run"       class="nav-link"><span>&#9654;</span> Menjalankan</a>
+    <a href="#controls"  class="nav-link"><span>&#127918;</span> Kontrol</a>
+  </nav>
+
+  <main class="main">
+
+    <div class="hero">
+      <div class="hero-tag">&#128214; Dokumentasi Teknis</div>
+      <h2>GLB Viewer</h2>
+      <p>Viewer minimal untuk file <strong>.glb</strong> / <strong>.gltf</strong> yang ditulis murni dalam bahasa C dengan rendering PBR (Physically Based Rendering) berbasis OpenGL dan sistem Image-Based Lighting (IBL) lengkap.</p>
+      <div class="hero-chips">
+        <span class="chip blue">C11</span>
+        <span class="chip blue">OpenGL 3.3 / 4.1</span>
+        <span class="chip green">PBR Cook-Torrance</span>
+        <span class="chip green">IBL Split-Sum</span>
+        <span class="chip purple">CMake 3.16+</span>
+        <span class="chip">glTF 2.0</span>
+        <span class="chip">HDR Environment</span>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <section id="overview">
+      <div class="section-heading">&#128196; Tentang Proyek</div>
+      <p><strong>GLB Viewer</strong> adalah aplikasi desktop ringan yang memungkinkan pengguna memuat dan menampilkan model 3D dalam format <code>.glb</code> (binary glTF) maupun <code>.gltf</code> dengan dukungan gambar eksternal. Seluruh kode ditulis dalam C standar (C11) tanpa ketergantungan pada runtime yang berat.</p>
+      <p>Renderer mengimplementasikan model pencahayaan <strong>Cook-Torrance</strong> dengan distribusi <strong>GGX</strong>, fungsi geometri <strong>Smith-Schlick</strong>, dan fresnel <strong>Schlick</strong>, ditambah pencahayaan ambient berbasis <em>Image-Based Lighting (IBL)</em> menggunakan pendekatan <em>split-sum</em> ala Brian Karis (Epic Games).</p>
+      <div class="callout info">
+        <span class="ci">&#8505;&#65039;</span>
+        <p>Proyek <strong>tidak</strong> memiliki dependensi eksternal yang perlu diinstal secara manual. Semua library (GLFW, cglm, cgltf, stb_image) diunduh secara otomatis oleh CMake pada saat konfigurasi build.</p>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features">
+      <div class="section-heading">&#10024; Fitur</div>
+      <div class="feature-grid">
+        <div class="feature-card"><div class="icon">&#128302;</div><h4>PBR Metallic-Roughness</h4><p>Cook-Torrance lengkap: distribusi GGX, geometri Smith, fresnel Schlick.</p></div>
+        <div class="feature-card"><div class="icon">&#127749;</div><h4>IBL Berbasis Cubemap</h4><p>Equirect HDR &rarr; cubemap &rarr; irradiance diffuse &rarr; prefiltered specular (5 mip) &rarr; BRDF LUT.</p></div>
+        <div class="feature-card"><div class="icon">&#127748;</div><h4>Langit Prosedural</h4><p>Fallback gradient langit + ground apabila tidak ada file HDR.</p></div>
+        <div class="feature-card"><div class="icon">&#128444;</div><h4>Tekstur glTF Lengkap</h4><p>Albedo (sRGB), metallic-roughness, normal map, ambient occlusion, emissive.</p></div>
+        <div class="feature-card"><div class="icon">&#127917;</div><h4>Alpha Mode</h4><p>OPAQUE, MASK (cutoff), dan BLEND dengan two-pass render yang benar.</p></div>
+        <div class="feature-card"><div class="icon">&#127912;</div><h4>Tone-mapping ACES</h4><p>ACES filmic tone-mapping + gamma correction (2.2) untuk output display-ready.</p></div>
+        <div class="feature-card"><div class="icon">&#127909;</div><h4>Kamera Orbit</h4><p>Drag kiri = rotate, scroll = zoom, dengan auto-fit bounding sphere otomatis.</p></div>
+        <div class="feature-card"><div class="icon">&#128268;</div><h4>GL Loader Sendiri</h4><p>Tidak bergantung pada GLAD/GLEW; menggunakan gl_loader.h custom via macro.</p></div>
+      </div>
+    </section>
+
+    <!-- STRUCTURE -->
+    <section id="structure">
+      <div class="section-heading">&#128193; Struktur File</div>
+      <div class="file-tree">
+        <div><span class="ft-dir">glb-viewer/</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-c">CMakeLists.txt</span> &nbsp;<span class="ft-note">konfigurasi build, fetch dependensi</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-note">README.md</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">src/</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">main.c</span> &nbsp;<span class="ft-note">entry point, shader PBR inline, kamera orbit, render loop</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-h">gl_loader.h</span> &nbsp;<span class="ft-note">tipe GL, konstanta, macro GL_FUNCTIONS</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">gl_loader.c</span> &nbsp;<span class="ft-note">implementasi gl_load() — isi pointer fungsi via get_proc</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-h">gltf_model.h</span> &nbsp;<span class="ft-note">deklarasi Mesh, Material, Model; model_load / model_free</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">gltf_model.c</span> &nbsp;<span class="ft-note">parsing glTF, upload GPU (VAO/VBO/EBO), bounding sphere</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-h">pbr_ibl.h</span> &nbsp;<span class="ft-note">deklarasi IblContext, ibl_build / ibl_draw_background / ibl_free</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">pbr_ibl.c</span> &nbsp;<span class="ft-note">seluruh pipeline IBL: shader bake, FBO, cubemap</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-h">shader.h</span> &nbsp;<span class="ft-note">prototipe shader_build()</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">shader.c</span> &nbsp;<span class="ft-note">kompilasi &amp; linking program GLSL</span></div>
+        <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="ft-c">stb_impl.c</span> &nbsp;<span class="ft-note">translation unit tunggal untuk STB_IMAGE_IMPLEMENTATION</span></div>
+        <div>&nbsp;&nbsp;<span class="ft-dir">build/</span> &nbsp;<span class="ft-note">output build (otomatis dibuat oleh CMake)</span></div>
+      </div>
+    </section>
+
+    <!-- DEPENDENCIES -->
+    <section id="deps">
+      <div class="section-heading">&#128230; Dependensi</div>
+      <p>Semua dependensi diunduh secara otomatis oleh CMake melalui <code>FetchContent</code> &mdash; tidak perlu instalasi manual.</p>
+      <table class="dep-table">
+        <thead><tr><th>Library</th><th>Versi</th><th>Peran</th></tr></thead>
+        <tbody>
+          <tr><td>GLFW</td><td>3.4</td><td>Window, konteks OpenGL, input event (mouse &amp; keyboard)</td></tr>
+          <tr><td>cglm</td><td>v0.9.4</td><td>Matematika vektor/matriks (mat4, vec3, lookat, perspective, dll.)</td></tr>
+          <tr><td>cgltf</td><td>v1.14</td><td>Parsing file .glb / .gltf (single-header library)</td></tr>
+          <tr><td>stb_image</td><td>master</td><td>Decode gambar PNG/JPG untuk tekstur; load file .hdr untuk IBL</td></tr>
+        </tbody>
+      </table>
+      <div class="callout tip">
+        <span class="ci">&#128161;</span>
+        <p><code>cgltf</code> dan <code>stb_image</code> adalah <em>single-header</em>; diunduh ke <code>build/third_party/</code>. Implementasi <code>stb_image</code> diaktifkan hanya di <code>stb_impl.c</code> untuk menghindari duplikasi simbol.</p>
+      </div>
+    </section>
+
+    <!-- MODULES -->
+    <section id="modules">
+      <div class="section-heading">&#129521; Modul</div>
+
+      <h3>gl_loader &mdash; Custom OpenGL Function Loader</h3>
+      <p>Menggantikan GLAD/GLEW. File <code>gl_loader.h</code> mendefinisikan semua tipe dasar GL, konstanta (mis. <code>GL_FRAMEBUFFER</code>, <code>GL_RGBA16F</code>), dan pointer fungsi via makro <code>GL_FUNCTIONS(X)</code>. Fungsi <code>gl_load()</code> menerima callback <code>get_proc</code> (dari <code>glfwGetProcAddress</code>) dan mengisi semua pointer di runtime.</p>
+
+      <h3>gltf_model &mdash; Parser &amp; Uploader Model</h3>
+      <p>Menggunakan <code>cgltf</code> untuk mem-parse file. Setiap <em>node</em> dalam scene di-traverse secara rekursif; transformasi dunia dihitung dengan mengalikan matriks lokal node terhadap matriks parent. Setiap <em>primitive</em> dikonversi ke GPU object (VAO + VBO + EBO). Vertex dibake langsung ke world space sehingga model matrix di shader selalu identity. Bounding sphere dihitung dari bounding box untuk keperluan auto-fit kamera.</p>
+
+      <h3>pbr_ibl &mdash; Image-Based Lighting Pipeline</h3>
+      <p>Modul terbesar proyek. Membangun 5 shader bake (GLSL 330): konversi equirect, irradiance diffuse, prefilter specular, BRDF LUT, dan background. Menggunakan satu FBO bersama untuk semua pass bake. Mendukung dua format render target: <code>RGBA16F</code> (HDR, ideal) dengan fallback <code>RGBA8</code> (LDR, untuk driver lawas).</p>
+
+      <h3>shader &mdash; Kompilasi Program GLSL</h3>
+      <p>Wrapper tipis di atas <code>glCreateShader</code> / <code>glLinkProgram</code>. Fungsi <code>shader_build()</code> menerima source vertex dan fragment, mengompilasi, melakukan linking, dan mengembalikan <code>GLuint</code> program siap pakai (atau 0 jika gagal, disertai log error ke <code>stderr</code>).</p>
+
+      <h3>main &mdash; Entry Point &amp; Render Loop</h3>
+      <p>Menginisialisasi GLFW (mencoba GL 4.1, fallback ke 3.3), memuat IBL, membangun shader PBR, memuat model, menyiapkan semua uniform, lalu menjalankan render loop dua pass (opaque &rarr; transparent).</p>
+    </section>
+
+    <!-- DATA TYPES -->
+    <section id="datatypes">
+      <div class="section-heading">&#128208; Struktur Data</div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">Vertex</span>
+          <span class="api-file">gltf_model.c (internal)</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">Representasi satu vertex di CPU sebelum diunggah ke GPU. Posisi dan normal sudah dibake ke world space.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>position</td><td>vec3</td><td>Posisi world space (baked dari node transform)</td></tr>
+              <tr><td>normal</td><td>vec3</td><td>Normal world space (ditransformasi oleh normal matrix)</td></tr>
+              <tr><td>texcoord</td><td>vec2</td><td>UV set pertama (TEXCOORD_0)</td></tr>
+              <tr><td>texcoord1</td><td>vec2</td><td>UV set kedua (TEXCOORD_1, bernilai 0 jika tidak ada)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">Mesh</span>
+          <span class="api-file">gltf_model.h</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">Satu primitive glTF yang sudah diunggah ke GPU. Berisi GPU buffer object dan referensi ke material.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>vao</td><td>GLuint</td><td>Vertex Array Object</td></tr>
+              <tr><td>vbo</td><td>GLuint</td><td>Vertex Buffer Object</td></tr>
+              <tr><td>ebo</td><td>GLuint</td><td>Element Buffer Object (index buffer)</td></tr>
+              <tr><td>index_count</td><td>GLsizei</td><td>Jumlah indeks untuk glDrawElements</td></tr>
+              <tr><td>material_index</td><td>int</td><td>Indeks ke array materials; -1 jika tidak ada material</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">Material</span>
+          <span class="api-file">gltf_model.h</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">Material PBR metallic-roughness sesuai spesifikasi glTF 2.0. Menyimpan faktor skalar dan handle tekstur GPU.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>base_color</td><td>vec4</td><td>baseColorFactor RGBA (linear color space)</td></tr>
+              <tr><td>metallic</td><td>float</td><td>metallicFactor [0..1]</td></tr>
+              <tr><td>roughness</td><td>float</td><td>roughnessFactor [0..1]</td></tr>
+              <tr><td>emissive</td><td>vec3</td><td>emissiveFactor (linear)</td></tr>
+              <tr><td>normal_scale</td><td>float</td><td>Skala normal map (normalTexture.scale)</td></tr>
+              <tr><td>occlusion_str</td><td>float</td><td>Kekuatan AO (occlusionTexture.strength)</td></tr>
+              <tr><td>alpha_mode</td><td>int</td><td>0=OPAQUE, 1=MASK, 2=BLEND</td></tr>
+              <tr><td>alpha_cutoff</td><td>float</td><td>Ambang alpha untuk mode MASK</td></tr>
+              <tr><td>uv_albedo .. uv_emissive</td><td>int</td><td>Set UV per tekstur (0 atau 1)</td></tr>
+              <tr><td>albedo_tex .. emissive_tex</td><td>GLuint</td><td>Handle tekstur GPU (0 = tidak ada)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">Model</span>
+          <span class="api-file">gltf_model.h</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">Representasi tingkat atas seluruh scene glTF yang sudah dimuat. Menyimpan array mesh, material, dan bounding sphere.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>meshes</td><td>Mesh*</td><td>Array semua mesh dari seluruh scene</td></tr>
+              <tr><td>mesh_count</td><td>size_t</td><td>Jumlah mesh</td></tr>
+              <tr><td>materials</td><td>Material*</td><td>Array material</td></tr>
+              <tr><td>material_count</td><td>size_t</td><td>Jumlah material</td></tr>
+              <tr><td>center</td><td>vec3</td><td>Titik tengah bounding sphere (world space)</td></tr>
+              <tr><td>radius</td><td>float</td><td>Radius bounding sphere model</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">IblContext</span>
+          <span class="api-file">pbr_ibl.h</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">Kumpulan resource GPU hasil proses bake IBL dari satu environment map equirectangular.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>env_cubemap</td><td>GLuint</td><td>Cubemap environment 512&times;512 (konversi equirect)</td></tr>
+              <tr><td>irradiance</td><td>GLuint</td><td>Cubemap irradiance diffuse 32&times;32</td></tr>
+              <tr><td>prefilter</td><td>GLuint</td><td>Cubemap specular prefiltered 256&times;256, 5 mip level</td></tr>
+              <tr><td>brdf_lut</td><td>GLuint</td><td>Tekstur 2D BRDF LUT 512&times;512 (kanal RG = A, B)</td></tr>
+              <tr><td>ok</td><td>int</td><td>1 apabila seluruh chain bake berhasil</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header">
+          <span class="api-kind struct">struct</span>
+          <span class="api-name">OrbitCamera</span>
+          <span class="api-file">main.c (internal)</span>
+        </div>
+        <div class="api-body">
+          <p class="api-desc">State kamera orbit berbasis koordinat bola (spherical coordinates). Titik target tetap; kamera bergerak mengelilinginya.</p>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+            <tbody>
+              <tr><td>target</td><td>vec3</td><td>Titik pusat yang dikamera tatap</td></tr>
+              <tr><td>distance</td><td>float</td><td>Jarak kamera ke target (radius bola)</td></tr>
+              <tr><td>yaw</td><td>float</td><td>Sudut horizontal (radian)</td></tr>
+              <tr><td>pitch</td><td>float</td><td>Sudut vertikal (radian), diklem ke &plusmn;1.5</td></tr>
+              <tr><td>fov</td><td>float</td><td>Field of view, default 45&deg;</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- API PUBLIK -->
+    <section id="api">
+      <div class="section-heading">&#9881; API Publik</div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">model_load(Model*, const char*)</span><span class="api-file">gltf_model.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Memuat file .glb/.gltf, mem-parse seluruh scene, mengupload semua mesh ke GPU, menghitung bounding sphere. Mengembalikan <code>1</code> sukses, <code>0</code> gagal.</p>
+          <div class="code-block"><div class="code-header"><span class="lang">C</span></div><pre><span class="kw">int</span> <span class="fn">model_load</span>(<span class="ty">Model</span> *model, <span class="kw">const char</span> *path);</pre></div>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">model_free(Model*)</span><span class="api-file">gltf_model.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Membebaskan semua resource GPU (VAO, VBO, EBO, tekstur) dan memori CPU yang dialokasikan oleh <code>model_load</code>.</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">ibl_build(IblContext*, const float*, int, int)</span><span class="api-file">pbr_ibl.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Menjalankan seluruh pipeline bake IBL dari data equirectangular float RGBA. Mencoba <code>RGBA16F</code> terlebih dahulu; fallback ke <code>RGBA8</code> jika float RT tidak didukung. Mengembalikan <code>1</code> jika sukses.</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">ibl_env_load_hdr(const char*, int*, int*)</span><span class="api-file">pbr_ibl.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Memuat file <code>.hdr</code> equirectangular menggunakan <code>stbi_loadf</code>. Mengembalikan <code>float*</code> RGBA (perlu dibebaskan dengan <code>free()</code>), atau <code>NULL</code> jika gagal / bukan file HDR.</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">ibl_env_procedural(int*, int*)</span><span class="api-file">pbr_ibl.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Menghasilkan data environment prosedural 256&times;128 berupa gradient langit (zenith &rarr; horizon &rarr; ground). Digunakan sebagai fallback. Mengembalikan <code>float*</code> RGBA yang perlu di-<code>free()</code>.</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">ibl_draw_background(const IblContext*, float[16], float[3], float)</span><span class="api-file">pbr_ibl.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Menggambar latar belakang environment cubemap via fullscreen triangle + ray reconstruction dari <code>inverse(proj * view)</code>. Dilakukan sebelum render model (depth test dimatikan sementara).</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">ibl_free(IblContext*)</span><span class="api-file">pbr_ibl.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Membebaskan semua resource IBL: 4 tekstur, 5 program shader bake, VAO/VBO cube &amp; quad, serta FBO.</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">shader_build(const char*, const char*)</span><span class="api-file">shader.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Mengompilasi vertex shader dan fragment shader dari string source, melakukan linking, mengembalikan <code>GLuint</code> program atau <code>0</code> jika gagal (log error dicetak ke <code>stderr</code>).</p>
+        </div>
+      </div>
+
+      <div class="api-card">
+        <div class="api-card-header"><span class="api-kind func">func</span><span class="api-name">gl_load(void*(*get_proc)(const char*))</span><span class="api-file">gl_loader.h</span></div>
+        <div class="api-body">
+          <p class="api-desc">Menerima callback <code>get_proc</code> (biasanya <code>glfwGetProcAddress</code>) dan mengisi semua pointer fungsi OpenGL yang terdaftar via makro <code>GL_FUNCTIONS</code>. Mengembalikan <code>1</code> jika semua berhasil dimuat.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHADER PBR -->
+    <section id="shader">
+      <div class="section-heading">&#127912; Shader PBR</div>
+      <p>Shader PBR (<code>VS_SRC</code> + <code>FS_SRC</code> di <code>main.c</code>) ditulis dalam GLSL 330 core dan disimpan sebagai string literal C. Vertex shader meneruskan posisi world space, normal, dan dua set UV &mdash; tidak ada model matrix karena vertex sudah ada di world space sejak proses loading.</p>
+
+      <h3>Atribut Vertex (Vertex Shader)</h3>
+      <table class="slot-table">
+        <thead><tr><th>Location</th><th>Nama</th><th>Tipe</th><th>Isi</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>aPos</td><td>vec3</td><td>Posisi world space</td></tr>
+          <tr><td>1</td><td>aNormal</td><td>vec3</td><td>Normal world space</td></tr>
+          <tr><td>2</td><td>aUV0</td><td>vec2</td><td>TEXCOORD_0</td></tr>
+          <tr><td>3</td><td>aUV1</td><td>vec2</td><td>TEXCOORD_1</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Alur Fragment Shader</h3>
+      <div class="pipeline">
+        <div class="pipeline-step accent">Base Color + Alpha</div>
+        <span class="arrow">&rarr;</span>
+        <div class="pipeline-step">Metallic / Roughness</div>
+        <span class="arrow">&rarr;</span>
+        <div class="pipeline-step">Normal Perturbation</div>
+        <span class="arrow">&rarr;</span>
+        <div class="pipeline-step accent">Cook-Torrance (Sun)</div>
+        <span class="arrow">&rarr;</span>
+        <div class="pipeline-step green">IBL Split-Sum</div>
+        <span class="arrow">&rarr;</span>
+        <div class="pipeline-step purple">ACES + &#947; 2.2</div>
+      </div>
+
+      <h3>Fungsi BRDF Internal (GLSL)</h3>
+      <table class="field-table">
+        <thead><tr><th>Fungsi</th><th>Peran</th></tr></thead>
+        <tbody>
+          <tr><td>distributionGGX(N, H, r)</td><td>Normal Distribution Function (NDF) &mdash; GGX/Trowbridge-Reitz</td></tr>
+          <tr><td>geomSchlick(NdotX, k)</td><td>Sub-formula geometri Smith (Schlick approximation)</td></tr>
+          <tr><td>fresnelSchlick(VdotH, F0)</td><td>Aproksimasi Fresnel untuk direct lighting</td></tr>
+          <tr><td>fresnelSchlickRoughness(NdotV, F0, r)</td><td>Fresnel dengan bias roughness untuk IBL ambient</td></tr>
+          <tr><td>perturbNormal(N, pos, uv, mapN)</td><td>Bangun TBN dari derivatif layar (tanpa tangent attribute)</td></tr>
+          <tr><td>aces(x)</td><td>ACES filmic tone-mapping curve</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Uniform Shader Lengkap</h3>
+      <table class="slot-table">
+        <thead><tr><th>Uniform</th><th>Tipe</th><th>Keterangan</th></tr></thead>
+        <tbody>
+          <tr><td>uView, uProj</td><td>mat4</td><td>Matriks view dan projection</td></tr>
+          <tr><td>uCamPos</td><td>vec3</td><td>Posisi kamera di world space</td></tr>
+          <tr><td>uBaseColor</td><td>vec4</td><td>Base color factor + alpha</td></tr>
+          <tr><td>uMetallic</td><td>float</td><td>Metallic factor</td></tr>
+          <tr><td>uRoughness</td><td>float</td><td>Roughness factor (min clamp 0.045)</td></tr>
+          <tr><td>uEmissive</td><td>vec3</td><td>Emissive factor</td></tr>
+          <tr><td>uNormalScale</td><td>float</td><td>Skala normal map</td></tr>
+          <tr><td>uOcclusionStr</td><td>float</td><td>Kekuatan ambient occlusion</td></tr>
+          <tr><td>uAlphaCutoff</td><td>float</td><td>Ambang alpha untuk mode MASK</td></tr>
+          <tr><td>uAlphaMode</td><td>int</td><td>0=OPAQUE, 1=MASK, 2=BLEND</td></tr>
+          <tr><td>uHasAlbedo .. uHasEmissive</td><td>int</td><td>Flag keberadaan tiap tekstur</td></tr>
+          <tr><td>uUVAlbedo .. uUVEmis</td><td>int</td><td>Set UV per tekstur (0 atau 1)</td></tr>
+          <tr><td>uSunDir, uSunColor</td><td>vec3</td><td>Arah dan warna matahari langsung</td></tr>
+          <tr><td>uExposure</td><td>float</td><td>Skala paparan sebelum tone-mapping</td></tr>
+          <tr><td>uUseIBL</td><td>int</td><td>1 jika IBL tersedia dan aktif</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- IBL PIPELINE -->
+    <section id="ibl">
+      <div class="section-heading">&#128161; IBL Pipeline</div>
+      <p>Seluruh bake IBL dilakukan saat startup menggunakan satu framebuffer object (FBO) bersama. Pipeline terdiri dari 5 tahap berurutan:</p>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin:20px 0;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="pipeline-step accent" style="min-width:260px">1. Equirect HDR &rarr; Texture 2D</div>
+          <span style="color:var(--text-dim);font-size:13px;">Upload float RGBA ke GPU</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="pipeline-step accent" style="min-width:260px">2. Texture 2D &rarr; Env Cubemap 512&times;512</div>
+          <span style="color:var(--text-dim);font-size:13px;">Render 6 face, generate mipmap</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="pipeline-step green" style="min-width:260px">3. Env Cubemap &rarr; Irradiance 32&times;32</div>
+          <span style="color:var(--text-dim);font-size:13px;">Cosine-weighted hemisphere, 1024 sample Hammersley</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="pipeline-step green" style="min-width:260px">4. Env Cubemap &rarr; Prefilter 256&rarr;16 (5 mip)</div>
+          <span style="color:var(--text-dim);font-size:13px;">Importance sampling GGX per roughness, 256 sample</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="pipeline-step purple" style="min-width:260px">5. BRDF LUT 512&times;512</div>
+          <span style="color:var(--text-dim);font-size:13px;">Integrasi split-sum Karis, output (A,B) di kanal RG, 512 sample</span>
+        </div>
+      </div>
+
+      <h3>Resolusi Konstanta</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">C</span><span>pbr_ibl.c</span></div>
+        <pre><span class="pp">#define</span> ENV_SIZE  <span class="num">512</span>   <span class="cm">/* resolusi base env cubemap */</span>
+<span class="pp">#define</span> IRR_SIZE   <span class="num">32</span>   <span class="cm">/* irradiance diffuse */</span>
+<span class="pp">#define</span> PREF_SIZE <span class="num">256</span>   <span class="cm">/* prefilter specular base */</span>
+<span class="pp">#define</span> PREF_MIPS   <span class="num">5</span>   <span class="cm">/* 256, 128, 64, 32, 16 */</span>
+<span class="pp">#define</span> LUT_SIZE  <span class="num">512</span>   <span class="cm">/* BRDF integration LUT */</span></pre>
+      </div>
+
+      <div class="callout warn">
+        <span class="ci">&#9888;&#65039;</span>
+        <p>Driver GPU lama mungkin tidak mendukung float render target (<code>RGBA16F</code>). Dalam kasus ini, bake diulang otomatis dengan format <code>RGBA8</code> (LDR). Kualitas IBL sedikit berkurang tetapi tetap berfungsi.</p>
+      </div>
+
+      <h3>Langit Prosedural</h3>
+      <p>Fungsi <code>ibl_env_procedural()</code> menghasilkan gradient 256&times;128 berdasarkan ketinggian (latitude) dengan tiga zona warna:</p>
+      <table class="field-table">
+        <thead><tr><th>Zona</th><th>Warna (approx)</th><th>Kondisi interpolasi</th></tr></thead>
+        <tbody>
+          <tr><td>Zenith</td><td>#1A385F (biru langit dalam)</td><td>dy &gt; 0, power curve 0.45</td></tr>
+          <tr><td>Horizon</td><td>#8C9EC7 (biru muda)</td><td>dy &asymp; 0</td></tr>
+          <tr><td>Ground</td><td>#241F1A (coklat gelap)</td><td>dy &lt; 0, power curve 0.5</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- TEXTURES -->
+    <section id="textures">
+      <div class="section-heading">&#128444; Tekstur &amp; Slot</div>
+      <p>Shader menggunakan 8 texture unit tetap. Slot 0&ndash;4 untuk material model; slot 5&ndash;7 untuk IBL yang diikat sekali per frame.</p>
+      <table class="slot-table">
+        <thead><tr><th>Unit</th><th>Uniform Shader</th><th>Isi</th><th>Format Upload</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td>uAlbedoTex</td><td>Albedo / Base Color</td><td>GL_SRGB8_ALPHA8</td></tr>
+          <tr><td>1</td><td>uMrTex</td><td>Metallic-Roughness (G=roughness, B=metallic)</td><td>GL_RGBA8 (linear)</td></tr>
+          <tr><td>2</td><td>uNormalTex</td><td>Normal Map (tangent space)</td><td>GL_RGBA8 (linear)</td></tr>
+          <tr><td>3</td><td>uOcclusionTex</td><td>Ambient Occlusion (kanal R)</td><td>GL_RGBA8 (linear)</td></tr>
+          <tr><td>4</td><td>uEmissiveTex</td><td>Emissive</td><td>GL_SRGB8_ALPHA8</td></tr>
+          <tr><td>5</td><td>uIrradiance</td><td>Cubemap irradiance diffuse (IBL)</td><td>RGBA16F / RGBA8</td></tr>
+          <tr><td>6</td><td>uPrefilter</td><td>Cubemap prefiltered specular (IBL)</td><td>RGBA16F / RGBA8</td></tr>
+          <tr><td>7</td><td>uBrdfLUT</td><td>BRDF LUT 2D (split-sum)</td><td>RGBA16F / RGBA8</td></tr>
+        </tbody>
+      </table>
+      <div class="callout tip">
+        <span class="ci">&#128161;</span>
+        <p>Albedo dan emissive diupload sebagai <code>GL_SRGB8_ALPHA8</code> agar GPU mengkonversi ke linear saat sampling (<em>linear workflow</em>). Tekstur data (normal, metallic-roughness, occlusion) diupload sebagai <code>GL_RGBA8</code> biasa.</p>
+      </div>
+    </section>
+
+    <!-- RENDER LOOP -->
+    <section id="renderloop">
+      <div class="section-heading">&#128257; Render Loop</div>
+      <p>Render loop berjalan hingga window ditutup atau tombol Esc ditekan. Setiap frame mengeksekusi urutan berikut:</p>
+      <ol class="step-list">
+        <li>
+          <div class="step-body">
+            <strong>Hitung posisi kamera &amp; matriks</strong>
+            <p>Posisi <em>eye</em> dihitung dari koordinat bola (yaw, pitch, distance). Matriks view (<code>glm_lookat</code>) dan projection (<code>glm_perspective</code>) dibuat. Near plane = <code>radius &times; 0.01</code>, far plane = <code>radius &times; 100</code>.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Gambar Background Environment</strong>
+            <p>Jika IBL tersedia, panggil <code>ibl_draw_background()</code> dengan fullscreen triangle. Depth test dimatikan sementara agar latar selalu muncul di belakang model.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Pass 0 &mdash; Opaque &amp; MASK</strong>
+            <p>Iterasi semua mesh. Mesh dengan <code>alpha_mode == BLEND</code> dilewati. Material uniform di-set, tekstur diikat ke slot 0&ndash;4, lalu <code>glDrawElements</code> dipanggil.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Pass 1 &mdash; Transparan (BLEND)</strong>
+            <p>Aktifkan blending (<code>GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA</code>) dan matikan depth write (<code>glDepthMask(GL_FALSE)</code>). Render hanya mesh BLEND. Kembalikan state GL ke semula setelah pass selesai.</p>
+          </div>
+        </li>
+        <li>
+          <div class="step-body">
+            <strong>Swap Buffer &amp; Poll Events</strong>
+            <p><code>glfwSwapBuffers</code> menampilkan frame ke layar; <code>glfwPollEvents</code> memproses input mouse dan keyboard.</p>
+          </div>
+        </li>
+      </ol>
+      <div class="callout info">
+        <span class="ci">&#8505;&#65039;</span>
+        <p>Two-pass rendering memastikan objek transparan dirender <em>setelah</em> semua objek opaque selesai, sehingga alpha blending terhadap depth buffer berjalan benar.</p>
+      </div>
+    </section>
+
+    <!-- BUILD -->
+    <section id="build">
+      <div class="section-heading">&#128296; Build</div>
+
+      <h3>Linux / macOS</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">bash</span><span>Terminal</span></div>
+        <pre>cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j</pre>
+      </div>
+
+      <h3>Windows (MinGW / Ninja)</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">cmd</span><span>Command Prompt</span></div>
+        <pre>cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build</pre>
+      </div>
+
+      <h3>Windows (MSVC / Visual Studio)</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">cmd</span><span>Command Prompt</span></div>
+        <pre>cmake -B build
+cmake --build build --config Release</pre>
+      </div>
+
+      <div class="callout info">
+        <span class="ci">&#8505;&#65039;</span>
+        <p>CMake memerlukan koneksi internet pada konfigurasi pertama untuk mengunduh dependensi. Proses selanjutnya menggunakan cache lokal di direktori <code>build/</code>.</p>
+      </div>
+
+      <h3>Persyaratan Sistem</h3>
+      <table class="dep-table">
+        <thead><tr><th>Komponen</th><th>Minimum</th><th>Catatan</th></tr></thead>
+        <tbody>
+          <tr><td>CMake</td><td>3.16</td><td>Untuk FetchContent</td></tr>
+          <tr><td>Kompiler C</td><td>C11</td><td>GCC, Clang, atau MSVC 2019+</td></tr>
+          <tr><td>OpenGL</td><td>3.3 Core</td><td>4.1 untuk float RT; fallback otomatis ke 3.3</td></tr>
+          <tr><td>OS</td><td>Linux, macOS, Windows</td><td>macOS wajib forward compat flag (ditangani CMake)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- RUN -->
+    <section id="run">
+      <div class="section-heading">&#9654; Menjalankan</div>
+
+      <h3>Sintaks</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">bash</span></div>
+        <pre>build/glb_viewer &lt;model.glb&gt; [env.hdr]</pre>
+      </div>
+
+      <h3>Contoh</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">bash</span><span>Hanya model (langit prosedural)</span></div>
+        <pre>build/glb_viewer DamagedHelmet.glb</pre>
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">bash</span><span>Model + HDR environment</span></div>
+        <pre>build/glb_viewer DamagedHelmet.glb studio_small.hdr</pre>
+      </div>
+
+      <h3>Argumen</h3>
+      <table class="dep-table">
+        <thead><tr><th>Argumen</th><th>Wajib</th><th>Keterangan</th></tr></thead>
+        <tbody>
+          <tr><td>&lt;model.glb&gt;</td><td>Ya</td><td>Path ke file .glb atau .gltf yang akan ditampilkan</td></tr>
+          <tr><td>[env.hdr]</td><td>Tidak</td><td>File HDR equirectangular untuk IBL; jika absen, digunakan langit prosedural</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Output Startup Tipikal</h3>
+      <div class="code-block">
+        <div class="code-header"><span class="lang">log</span><span>stdout</span></div>
+        <pre>OpenGL : 4.1.0 NVIDIA 546.33
+Vendor : NVIDIA GeForce RTX 3060
+Environment HDR: studio.hdr (2048x1024)
+[ibl] bake selesai (RGBA16F HDR): env=512 irradiance=32 prefilter=256x256 lut=512
+Model dimuat: 12 mesh, 5 material, radius=0.918</pre>
+      </div>
+    </section>
+
+    <!-- CONTROLS -->
+    <section id="controls">
+      <div class="section-heading">&#127918; Kontrol</div>
+      <table class="ctrl-table">
+        <thead><tr><th>Input</th><th>Aksi</th></tr></thead>
+        <tbody>
+          <tr><td>Klik Kiri + Drag</td><td>Orbit kamera (rotate yaw &amp; pitch) mengelilingi model</td></tr>
+          <tr><td>Scroll Mouse</td><td>Zoom in / out (ubah jarak kamera ke target)</td></tr>
+          <tr><td>Esc</td><td>Keluar dari aplikasi</td></tr>
+        </tbody>
+      </table>
+
+      <div class="divider"></div>
+
+      <h3>Detail Kamera Orbit</h3>
+      <p>Sensitivitas rotasi: <strong>0.01 radian per pixel</strong>. Pitch dibatasi antara <strong>&minus;1.5</strong> dan <strong>+1.5</strong> radian (~86&deg;) untuk mencegah gimbal lock di kutub. Zoom menggunakan faktor eksponensial <code>distance &times; 0.9^scroll</code> dengan batas <strong>0.05</strong> hingga <strong>5000</strong> unit.</p>
+      <p>Saat model dimuat, kamera otomatis diposisikan pada jarak <code>radius &times; 2.5</code> (minimum 0.5) dan menatap pusat bounding sphere model.</p>
+
+      <div class="footer">
+        Dokumentasi GLB Viewer &mdash; dibaca dari kode sumber &nbsp;&bull;&nbsp;
+        Bahasa: C11 &nbsp;&bull;&nbsp; Renderer: OpenGL 3.3+ Core &nbsp;&bull;&nbsp; Build: CMake 3.16+
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks  = document.querySelectorAll('.nav-link');
+  const observer  = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        navLinks.forEach(l => l.classList.remove('active'));
+        const a = document.querySelector(`.nav-link[href="#${e.target.id}"]`);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+  sections.forEach(s => observer.observe(s));
+</script>
+</body>
+</html>
